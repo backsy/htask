@@ -5,18 +5,13 @@ using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Text;
 using System;
-using System.Runtime.InteropServices;
 
 namespace HTask.Controllers
 {
     public class HomeController : Controller
     {
         private readonly SectorsContext _context;
-        private const string SessionUserName = "_Name";
-        private const string SessionCheckedBoxes = "_CheckedBoxes";
-        private const string SessionTerms = "_Terms";
         private const string SessionNameInUse = "_NameInUse";
         private const string SessionSuccess = "_Success";
 
@@ -27,16 +22,29 @@ namespace HTask.Controllers
 
         public async Task<IActionResult> Index()
         {
+            // TODO read user data back from DB, just give the two flags in session data
             var vm = new SectorViewModel();
             IQueryable<Sector> sectorQuery = from s in _context.Sector select s;
             var allSectors = new List<Sector>(await sectorQuery.Include(e => e.Children).ToListAsync());
+
+            IQueryable<User> userQuery = from u in _context.User select u;
+            var userData = await userQuery
+                .Where(u => u.SessionID == HttpContext.Session.Id)
+                .Include(u => u.UserSectors)
+                .FirstOrDefaultAsync();
             var checkedBoxes = new List<int>();
-            if(HttpContext.Session.TryGetValue(SessionCheckedBoxes, out var checkedBoxesBytes))
-                checkedBoxes = ToListOf(checkedBoxesBytes, BitConverter.ToInt32);
-            if(HttpContext.Session.TryGetValue(SessionUserName, out var nameBytes))
-                vm.Name = Encoding.ASCII.GetString(nameBytes);
-            if(HttpContext.Session.TryGetValue(SessionTerms, out var terms))
-                vm.TermsAndConditions = BitConverter.ToBoolean(terms);
+            if(userData != null)
+            { 
+                foreach(var sector in userData.UserSectors)
+                {
+                    checkedBoxes.Add(sector.SectorId);
+                }
+                vm.Name = userData.UserName;
+                vm.TermsAndConditions = userData.AgreeToTerms;
+            }
+            var checkboxListItems = RecurciveCheckboxBuilder(allSectors.Where(x => x.Parent == null), 0, checkedBoxes);
+            vm.Sectors = checkboxListItems;
+
             if(HttpContext.Session.TryGetValue(SessionNameInUse, out var nameInUse))
                 ViewBag.NameInUse = BitConverter.ToBoolean(nameInUse);
             else 
@@ -45,8 +53,7 @@ namespace HTask.Controllers
                 ViewBag.Success = BitConverter.ToBoolean(success);
             else
                 ViewBag.Success = false;
-            var checkboxListItems = RecurciveCheckboxBuilder(allSectors.Where(x => x.Parent == null), 0, checkedBoxes);
-            vm.Sectors = checkboxListItems;
+
             return View(vm);
         }
 
@@ -61,13 +68,13 @@ namespace HTask.Controllers
                 IQueryable<Sector> sectorQuery = from s in _context.Sector select s;
                 IQueryable<User> userQuery = from s in _context.User select s;
                 var selectedSectors = new List<Sector>(await sectorQuery.Where(s => selectedSectorIDs.Contains(s.Id)).Include(us => us.UserSectors).ToListAsync());
-                var userById = await userQuery.Where(u => u.SessionID == id).FirstOrDefaultAsync();
+                var userById = await userQuery.Where(u => u.SessionID == id).Include(u => u.UserSectors).FirstOrDefaultAsync();
                 var userByName = await userQuery.Where(u => u.UserName == vm.Name).FirstOrDefaultAsync();
                 var sessionExists = userById != null;
                 var nameInTable = userByName != null;
                 var bothInTable = sessionExists && nameInTable;
                 var noNameConflict = bothInTable ? userByName.Id == userById.Id : !nameInTable;
-                // User exists and session is valid, update values
+
                 if(sessionExists && noNameConflict)
                 {
                     userById.AgreeToTerms = vm.TermsAndConditions;
@@ -90,9 +97,8 @@ namespace HTask.Controllers
                     }
                     else
                     {
-                        //Crash and burn
                         HttpContext.Session.Clear();
-                        return RedirectToAction("Index"); 
+                        return new StatusCodeResult(422);
                     }
                 }
                 else if(!sessionExists && noNameConflict)
@@ -115,32 +121,23 @@ namespace HTask.Controllers
                     }
                     else
                     {
-                        //Crash and burn
                         HttpContext.Session.Clear();
-                        return RedirectToAction("Index"); 
+                        return new StatusCodeResult(422);
                     }
                 }
                 else
                 {
-
-                    HttpContext.Session.Set(SessionUserName, new byte[0]);
-                    HttpContext.Session.Set(SessionCheckedBoxes, selectedSectorIDs.SelectMany(BitConverter.GetBytes).ToArray());
-                    HttpContext.Session.Set(SessionTerms, BitConverter.GetBytes(vm.TermsAndConditions));
                     HttpContext.Session.Set(SessionSuccess, BitConverter.GetBytes(false));
                     HttpContext.Session.Set(SessionNameInUse, BitConverter.GetBytes(true));
                     return RedirectToAction("Index"); 
                 }                       
                 
-                HttpContext.Session.Set(SessionUserName, Encoding.ASCII.GetBytes(vm.Name));
-                HttpContext.Session.Set(SessionCheckedBoxes, selectedSectorIDs.SelectMany(BitConverter.GetBytes).ToArray());
-                HttpContext.Session.Set(SessionTerms, BitConverter.GetBytes(vm.TermsAndConditions));
                 HttpContext.Session.Set(SessionSuccess, BitConverter.GetBytes(true));
                 HttpContext.Session.Set(SessionNameInUse, BitConverter.GetBytes(false));
                 return RedirectToAction("Index"); 
             }
-            //Crash and burn
             HttpContext.Session.Clear();
-            return RedirectToAction("Index"); 
+            return new StatusCodeResult(422);
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
@@ -168,14 +165,6 @@ namespace HTask.Controllers
                 }
             }
             return checkBoxListItems;
-        }
-
-        static List<T> ToListOf<T>(byte[] array, Func<byte[], int, T> bitConverter)
-        {
-            var size = Marshal.SizeOf(typeof(T));
-            return Enumerable.Range(0, array.Length / size)
-                             .Select(i => bitConverter(array, i * size))
-                             .ToList();
         }
     }
 }
