@@ -21,8 +21,6 @@
 
     3.3. Refill the form using stored data
 
-    Hmmm could do that bit better...
-
     3.4. Allow the user to edit his/her own data during the session
 
 # Things i didnt do:
@@ -32,5 +30,3 @@ Tests - there are paths that need some testing.
 Proper git history.
 
 Decent CSS.
-
-Could use some refactoring. Might do it yet...
