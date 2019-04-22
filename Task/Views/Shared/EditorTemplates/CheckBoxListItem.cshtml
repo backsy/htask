@@ -1,0 +1,17 @@
+﻿@model HTask.Models.CheckBoxListItem
+
+@Html.HiddenFor(x => x.ID)
+<label>
+    @Html.CheckBoxFor(x => x.IsChecked)
+    <span>
+        @foreach(int index in Enumerable.Range(0, Model.Depth))
+        {
+            @:<span>
+        }
+        @Model.Display
+        @foreach(int index in Enumerable.Range(0, Model.Depth))
+        {
+            @:</span>
+        }
+    </span>
+</label>

@@ -1,6 +1,4 @@
-using System;
-
-namespace Task.Models
+namespace HTask.Models
 {
     public class ErrorViewModel
     {

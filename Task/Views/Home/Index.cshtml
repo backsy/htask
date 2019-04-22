@@ -1,8 +1,40 @@
-﻿@{
+﻿@model HTask.Models.SectorViewModel
+
+@{
     ViewData["Title"] = "Home Page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<div class="text-left">
+    <form asp-action="Index">
+        <p>Please enter your name and pick the Sectors you are currently involved in.</p>
+        <div class="form-group">
+            <p>Name: <input asp-for="Name" value="@Model.Name"></p>
+            <span asp-validation-for="Name" class="text-danger"></span>
+            @if (ViewBag.NameInUse)
+            {
+                <span class="text-danger">Username in use. Please choose a different one.</span>
+            }
+        </div>
+        <label asp-for="Sectors"></label>
+        <span asp-validation-for="Sectors" class="text-danger"></span>
+        <br />
+        <div class="nested-select" id="validate">
+            @Html.EditorFor(x => x.Sectors)
+        </div>
+        <br />
+        <div class="form-group">
+            <input asp-for="TermsAndConditions" />
+            <label asp-for="TermsAndConditions"></label>
+            <span asp-validation-for="TermsAndConditions" class="text-danger"></span>
+        </div>
+        <input type="submit" value="Save"/>
+    </form>
+</div>            
+@if (ViewBag != null && ViewBag.Success)
+{
+    <span class="text-success">User saved!</span>
+}
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
