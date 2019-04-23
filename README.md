@@ -30,3 +30,5 @@ Tests - there are paths that need some testing.
 Proper git history.
 
 Decent CSS.
+
+Refactoring - There are unnessecary nested if's and all encompassing if's that can be inverted etc. First save and modified save could be different methods alltogether, recurcive builder could be part of the viewmodel etc.
